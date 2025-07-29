@@ -1,0 +1,55 @@
+version: '3.1'
+
+services:
+  rabbitmq_dev:
+    container_name: rabbitmq_dev
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "5671:5671"
+      - "15672:15672"
+    volumes:
+      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"
+    networks:
+      - keycloak_module
+
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "6832:6832/udp"
+      - "6831:6831/udp"
+      - "14250:14250"
+      - "14268:14268"
+      - "14271:14271"
+      - "16686:16686"
+    networks:
+      - keycloak_module
+    environment:
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: 0
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+
+  keycloak-dev:
+    image: quay.io/keycloak/keycloak:18.0.0
+    ports:
+      - "8080:8080"
+    volumes:
+      - "./keycloak_rabbitmq_extension.jar:/opt/keycloak/providers/keycloak-to-rabbit.jar"
+    networks:
+      - keycloak_module
+    depends_on:
+      - rabbitmq_dev
+    environment:
+      KEYCLOAK_ADMIN: keycloak
+      KEYCLOAK_ADMIN_PASSWORD: secret
+      KK_TO_RMQ_USERNAME: "${KEYCLOAK_RABBITMQ_USER}"
+      KK_TO_RMQ_PASSWORD: "${KEYCLOAK_RABBITMQ_PASSWORD}"
+      KK_TO_RMQ_URL: "${KEYCLOAK_RABBITMQ_HOST}"
+      KK_TO_RMQ_PORT: "${KEYCLOAK_RABBITMQ_PORT}"
+      KK_TO_RMQ_VHOST: "${KEYCLOAK_RABBITMQ_VHOST}"
+      KK_TO_RMQ_EXCHANGE: "${KEYCLOAK_RABBITMQ_PRIMARY_EXCHANGE}"
+    command: start-dev
+
+networks:
+  keycloak_module:
